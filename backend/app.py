@@ -314,33 +314,6 @@ def mark_medicine_taken():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-@app.route("/doctor_upload_record", methods=["POST"])
-def doctor_upload_record():
-    try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
-
-        file = request.files["file"]
-        path = "doctor_upload_temp.jpg"
-        file.save(path)
-
-        # Perform OCR
-        raw_text = extract_text(path)
-        
-        # Structure with AI
-        structured_data = structure_medical_text(raw_text)
-
-        # Cleanup
-        if os.path.exists(path):
-            os.remove(path)
-
-        return jsonify({
-            "raw_text": raw_text,
-            "structured_data": structured_data
-        })
-    except Exception as e:
-        print(f"❌ Error in doctor_upload_record: {e}")
-        return jsonify({"error": str(e), "message": "Backend processing failed"}), 500
 
 @app.route("/doctor_ai_summary", methods=["POST"])
 def doctor_ai_summary():
