@@ -29,8 +29,11 @@ CORS(app)
 
 # Initialize OpenAI client globally if key exists
 openai_client = None
-if os.getenv("OPENAI_API_KEY"):
-    openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+try:
+    if OpenAI and os.getenv("OPENAI_API_KEY"):
+        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+except Exception as e:
+    print(f"⚠️ OpenAI client init failed: {e}")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///caresphere.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
