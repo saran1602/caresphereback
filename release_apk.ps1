@@ -2,8 +2,12 @@
 
 Write-Host "Starting Flutter Build Process..." -ForegroundColor Cyan
 
-# Navigate to frontend directory
-cd frontend/caresphere
+# Navigate to frontend directory if not already there
+if (!(Get-Location).Path.EndsWith("frontend\caresphere")) {
+    if (Test-Path "frontend\caresphere") {
+        cd frontend/caresphere
+    }
+}
 
 # Clean previous builds
 Write-Host "Cleaning previous builds..."
