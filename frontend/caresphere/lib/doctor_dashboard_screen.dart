@@ -83,23 +83,34 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         var data = jsonDecode(responseBody);
         
         setState(() {
-          // The backend returns a JSON string or object in 'structured_data'
-          var rawStructured = data['structured_data'];
-          if (rawStructured is String) {
-            structuredData = jsonDecode(rawStructured);
-          } else {
-            structuredData = rawStructured;
+          try {
+            var rawStructured = data['structured_data'];
+            if (rawStructured is String) {
+              structuredData = jsonDecode(rawStructured);
+            } else {
+              structuredData = rawStructured;
+            }
+            
+            aiSummary = structuredData?['clinical_summary'] ?? "No summary available";
+          } catch (e) {
+            print("❌ OCR Parsing Error: $e");
+            aiSummary = "Error parsing medical data. Please try again with a clearer image.";
           }
-          
-          aiSummary = structuredData?['clinical_summary'] ?? "No summary available";
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("✅ Record Processed Successfully")),
         );
       } else {
+        var errorBody = await response.stream.bytesToString();
+        var errorMsg = "Upload Failed";
+        try {
+          var errorData = jsonDecode(errorBody);
+          errorMsg = errorData['error'] ?? errorMsg;
+        } catch (_) {}
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Upload Failed")),
+          SnackBar(content: Text("❌ $errorMsg")),
         );
       }
     } catch (e) {
