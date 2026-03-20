@@ -8,4 +8,6 @@ pyjwt
 qrcode
 pillow
 gunicorn
+pytesseract
+opencv-python
 werkzeug==2.3.7
