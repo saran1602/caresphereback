@@ -132,6 +132,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     }
   }
 
+  Future fetchPatientProgress() async {
     try {
       final docId = widget.userId ?? "doctor_123";
       final res = await http.get(
@@ -170,43 +171,24 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       );
 
       if (res.statusCode == 200) {
-        var summaryData = jsonDecode(res.body); // Corrected from response.body to res.body
+        var summaryData = jsonDecode(res.body);
         
         if (summaryData is Map) {
           String summary = summaryData["summary"] ?? summaryData["clinical_summary"] ?? "No summary available";
-          String recommendations = summaryData["recommendations"] ?? "N/A";
-          String risk = summaryData["risk_assessment"] ?? "N/A";
-
           setState(() {
-            doctorSummary = {
-              "summary": summary,
-              "recommendations": recommendations,
-              "risk": risk,
-            };
-            aiSummary = summary; // Keep aiSummary updated for other functions
+            aiSummary = summary;
             loading = false;
           });
-          
-          _listenToSummary(summary);
         } else if (summaryData is String) {
-           setState(() {
-            doctorSummary = {
-              "summary": summaryData,
-              "recommendations": "N/A",
-              "risk": "N/A",
-            };
-            aiSummary = summaryData; // Keep aiSummary updated for other functions
+          setState(() {
+            aiSummary = summaryData;
             loading = false;
           });
-          _listenToSummary(summaryData);
         } else {
           setState(() {
             aiSummary = "Error: Unexpected summary data format.";
             loading = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("❌ Failed: Unexpected summary data format")),
-          );
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("✅ AI Summary Generated")),
@@ -662,10 +644,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               ],
             ),
             SizedBox(height: 10),
-            if (patientProgress == null || patientProgress!.isEmpty)
+            if (patientProgress.isEmpty)
               Center(child: Text("Register patients to track progress"))
             else
-              ...patientProgress!.map((p) {
+              ...patientProgress.map((p) {
                 return Card(
                   margin: EdgeInsets.only(bottom: 15),
                   child: ListTile(
