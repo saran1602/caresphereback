@@ -20,8 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose port and start
-ENV PORT=5000
-EXPOSE 5000
+# Render provides the PORT environment variable. If not set, default to 10000.
+ENV PORT=10000
+EXPOSE 10000
 
 # Use gunicorn to run the app
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-10000} app:app"]
