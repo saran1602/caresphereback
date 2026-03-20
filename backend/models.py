@@ -32,6 +32,11 @@ class User(db.Model):
     assigned_patient_id = db.Column(db.String(50), nullable=True)  # Link to patient
     relationship = db.Column(db.String(100), nullable=True)  # Relation to patient
     
+    # Emergency Contact specific
+    emergency_contact_name = db.Column(db.String(100), nullable=True)
+    emergency_contact_phone = db.Column(db.String(20), nullable=True)
+    assigned_hospital_phone = db.Column(db.String(20), nullable=True)
+    
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     
@@ -49,6 +54,9 @@ class Medication(db.Model):
     medicine = db.Column(db.String(100))
     timing = db.Column(db.String(50))
     taken = db.Column(db.Boolean, default=False)
+    diagnosis = db.Column(db.String(255), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Vitals(db.Model):
     id = db.Column(db.Integer, primary_key=True)

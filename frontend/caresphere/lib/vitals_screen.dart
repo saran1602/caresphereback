@@ -3,6 +3,9 @@ import 'package:http/http.dart' as http;
 import 'api_config.dart';
 
 class VitalsScreen extends StatefulWidget {
+  final String? userId;
+  VitalsScreen({this.userId});
+
   @override
   _VitalsScreenState createState() => _VitalsScreenState();
 }
@@ -78,14 +81,15 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
     try {
       var response = await http.post(
-        Uri.parse(ApiConfig.emergency),
-        body: {
-          "patient_name": "Lakshmi",
-          "heart_rate": heartRate.toString(),
-          "bp": "$systolicBP/$diastolicBP",
-          "pulse": pulseRate.toString(),
-          "risk": riskStatus,
-        },
+        Uri.parse("${ApiConfig.baseUrl}/emergency"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "patient_unique_id": widget.userId ?? "unknown",
+          "sugar": _sugarController.text,
+          "bp": _bpController.text,
+          "heart_rate": _heartRateController.text,
+          "pulse": _pulseController.text
+        }),
       );
 
       if (response.statusCode == 200) {

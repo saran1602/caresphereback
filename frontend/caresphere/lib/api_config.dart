@@ -15,5 +15,8 @@ class ApiConfig {
   static String get getReminders => "$baseUrl/get_reminders";
   static String get markMedicineTaken => "$baseUrl/mark_medicine_taken";
   static String get doctorUploadRecord => "$baseUrl/doctor_upload_record";
+  static String get doctorAiSummary => "$baseUrl/doctor_ai_summary";
+  static String get aiPrescriptionSuggest => "$baseUrl/ai_prescription_suggest";
+  static String get getPatientProgress => "$baseUrl/doctor/patient_progress";
   static String get chat => "$baseUrl/chat";
 }

@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from models import db, Medication, Vitals, Reminder, User
+from models import db, Medication, Vitals, Reminder, User, DoctorPatient
 from auth import register_auth_routes
 from risk_model import predict_risk
+from ocr_service2 import extract_text, structure_medical_text
 from twilio.rest import Client
 import os
 from dotenv import load_dotenv
@@ -41,51 +42,85 @@ HOSPITAL_NUMBER = os.getenv("HOSPITAL_NUMBER")
 AMBULANCE_NUMBER = os.getenv("AMBULANCE_NUMBER")
 # ================= EMERGENCY FUNCTION =================
 
-def trigger_emergency(patient, sugar, bp):
+def trigger_emergency(patient_unique_id, sugar, bp, heart_rate=None, pulse=None):
+    # Fetch patient and their emergency contacts
+    patient = User.query.filter_by(unique_id=patient_unique_id).first()
+    if not patient:
+        print(f"❌ Emergency Error: Patient {patient_unique_id} not found")
+        return
 
+    hospital_number = patient.assigned_hospital_phone or HOSPITAL_NUMBER
+    emergency_contact = patient.emergency_contact_phone
+    
     msg = f"""
 🚨 CRITICAL PATIENT ALERT
-Patient: {patient}
+Patient: {patient.full_name} ({patient.patient_id})
 Sugar Level: {sugar}
 BP: {bp}
+Heart Rate: {heart_rate or 'NA'}
+Pulse: {pulse or 'NA'}
 Immediate Attention Required
 """
 
+    # Send SMS to Hospital
     try:
         sms = client.messages.create(
             body=msg,
             from_=TWILIO_NUMBER,
-            to=HOSPITAL_NUMBER
+            to=hospital_number
         )
-        print("✅ SMS SENT:", sms.sid)
-
+        print(f"✅ SMS SENT TO HOSPITAL ({hospital_number}):", sms.sid)
     except Exception as e:
-        print("❌ SMS ERROR:", e)
+        print("❌ HOSPITAL SMS ERROR:", e)
 
+    # Send SMS to Emergency Contact if exists
+    if emergency_contact:
+        try:
+            sms = client.messages.create(
+                body=f"🚨 EMERGENCY: {patient.full_name} needs help. {msg}",
+                from_=TWILIO_NUMBER,
+                to=emergency_contact
+            )
+            print(f"✅ SMS SENT TO CONTACT ({emergency_contact}):", sms.sid)
+        except Exception as e:
+            print("❌ CONTACT SMS ERROR:", e)
+
+    # Trigger Call to Ambulance/Hospital
     try:
         call = client.calls.create(
-            twiml='<Response><Say>Emergency patient alert. Please respond immediately.</Say></Response>',
+            twiml=f'<Response><Say>Emergency alert for patient {patient.full_name}. Immediate response requested.</Say></Response>',
             from_=TWILIO_NUMBER,
-            to=AMBULANCE_NUMBER
+            to=hospital_number
         )
         print("✅ CALL SENT:", call.sid)
-
     except Exception as e:
         print("❌ CALL ERROR:", e)
 
 # ================= ROUTES =================
 @app.route("/emergency", methods=["POST"])
 def emergency():
-
     data = request.form or request.json
-
-    patient = data.get("patient_name", "Unknown")
+    
+    patient_id = data.get("patient_unique_id")
     sugar = data.get("sugar", "NA")
     bp = data.get("bp", "NA")
+    heart_rate = data.get("heart_rate")
+    pulse = data.get("pulse")
 
-    trigger_emergency(patient, sugar, bp)
+    if not patient_id:
+        # Fallback for old clients or manual triggers
+        patient_name = data.get("patient_name", "Unknown")
+        trigger_emergency_legacy(patient_name, sugar, bp)
+        return jsonify({"status": "Emergency Triggered (Legacy Mode)"})
 
+    trigger_emergency(patient_id, sugar, bp, heart_rate, pulse)
     return jsonify({"status": "Emergency Triggered"})
+
+def trigger_emergency_legacy(patient_name, sugar, bp):
+    msg = f"🚨 LEGACY ALERT: Patient {patient_name}, Sugar {sugar}, BP {bp}"
+    try:
+        client.messages.create(body=msg, from_=TWILIO_NUMBER, to=HOSPITAL_NUMBER)
+    except: pass
 
 @app.route("/")
 def home():
@@ -217,30 +252,26 @@ def mark_medicine_taken():
 
 @app.route("/doctor_upload_record", methods=["POST"])
 def doctor_upload_record():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
-    path = "doctor_temp.jpg"
+    path = "doctor_upload_temp.jpg"
     file.save(path)
 
-    # Dummy text extraction and structuring
-    raw_text = "Patient Diagnosis: Type 2 Diabetes\nMedications: Metformin 500mg twice daily, Lisinopril 10mg once daily\nVitals: BP 130/85, Blood Sugar 145 mg/dL\nNotes: Monitor glucose levels regularly"
+    # Perform OCR
+    raw_text = extract_text(path)
+    
+    # Structure with AI
+    structured_data = structure_medical_text(raw_text)
 
-    structured = {
-        "diagnosis": ["Type 2 Diabetes"],
-        "medications": [
-            {"name": "Metformin", "dose": "500mg", "frequency": "twice daily"},
-            {"name": "Lisinopril", "dose": "10mg", "frequency": "once daily"}
-        ],
-        "vitals": {
-            "bp": "130/85",
-            "blood_sugar": "145 mg/dL"
-        },
-        "notes": "Monitor glucose levels regularly"
-    }
+    # Cleanup
+    if os.path.exists(path):
+        os.remove(path)
 
     return jsonify({
         "raw_text": raw_text,
-        "structured_data": structured
+        "structured_data": structured_data
     })
 
 @app.route("/doctor_ai_summary", methods=["POST"])
@@ -334,6 +365,35 @@ Suggested Plan (Fallback):
         suggestion = "Could not generate suggestion at this time."
 
     return jsonify({"suggestion": suggestion})
+
+@app.route("/doctor/patient_progress/<doctor_unique_id>")
+def get_patient_progress(doctor_unique_id):
+    try:
+        # Find all patients assigned to this doctor
+        assignments = DoctorPatient.query.filter_by(doctor_id=doctor_unique_id).all()
+        patient_ids = [a.patient_id for a in assignments]
+        
+        # Get progress for each patient
+        progress_report = []
+        for p_id in patient_ids:
+            patient = User.query.filter_by(unique_id=p_id).first()
+            if not patient: continue
+            
+            meds = Medication.query.filter_by(patient=patient.full_name).all() # Should use ID in future
+            total = len(meds)
+            taken = len([m for m in meds if m.taken])
+            
+            progress_report.append({
+                "patient_name": patient.full_name,
+                "patient_id": patient.patient_id,
+                "total_meds": total,
+                "taken_meds": taken,
+                "adherence_rate": (taken / total * 100) if total > 0 else 0
+            })
+            
+        return jsonify(progress_report)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ================= MAIN =================
 

@@ -52,12 +52,13 @@ class NotificationService {
   Future<void> showInstantNotification(String title, String body) async {
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
-          'medicine_reminder',
+          'medicine_reminder_channel',
           'Medicine Reminders',
-          channelDescription: 'Notifications for medicine reminders',
+          channelDescription: 'Alarm-like notifications for medicine reminders',
           importance: Importance.max,
           priority: Priority.high,
-          sound: RawResourceAndroidNotificationSound('alarm_sound'),
+          fullScreenIntent: true,
+          ticker: 'Medicine Reminder',
           enableVibration: true,
           playSound: true,
         );
@@ -98,12 +99,13 @@ class NotificationService {
 
       const AndroidNotificationDetails androidNotificationDetails =
           AndroidNotificationDetails(
-            'medicine_reminder',
+            'medicine_reminder_channel',
             'Medicine Reminders',
-            channelDescription: 'Notifications for medicine reminders',
+            channelDescription: 'Alarm-like notifications for medicine reminders',
             importance: Importance.max,
             priority: Priority.high,
-            sound: RawResourceAndroidNotificationSound('alarm_sound'),
+            fullScreenIntent: true,
+            ticker: 'Medicine Reminder',
             enableVibration: true,
             playSound: true,
           );

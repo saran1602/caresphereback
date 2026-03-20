@@ -6,6 +6,9 @@ import 'auth_service.dart';
 import 'api_config.dart';
 
 class PatientReminderScreen extends StatefulWidget {
+  final String? userId;
+  PatientReminderScreen({this.userId});
+
   @override
   State<PatientReminderScreen> createState() => _PatientReminderScreenState();
 }
@@ -13,7 +16,7 @@ class PatientReminderScreen extends StatefulWidget {
 class _PatientReminderScreenState extends State<PatientReminderScreen> {
   List<Map<String, dynamic>> medicines = [];
   bool loading = true;
-  String patientName = "Lakshmi"; // Change based on logged-in patient
+  String patientName = "Loading..."; 
   final AuthService authService = AuthService();
 
   void _logout() async {
@@ -43,7 +46,29 @@ class _PatientReminderScreenState extends State<PatientReminderScreen> {
   @override
   void initState() {
     super.initState();
-    fetchReminders();
+    _loadPatientData();
+  }
+
+  Future<void> _loadPatientData() async {
+    if (widget.userId != null) {
+      final profile = await authService.getUserProfile(widget.userId!);
+      if (profile['success']) {
+        setState(() {
+          patientName = profile['user']['full_name'];
+        });
+        fetchReminders();
+      } else {
+        setState(() {
+          patientName = "Patient";
+          loading = false;
+        });
+      }
+    } else {
+      setState(() {
+          patientName = "Guest";
+          loading = false;
+      });
+    }
   }
 
   Future<void> fetchReminders() async {
