@@ -97,6 +97,10 @@ Immediate Attention Required
         print("❌ CALL ERROR:", e)
 
 # ================= ROUTES =================
+@app.route("/", methods=["GET"])
+def health_check():
+    return jsonify({"status": "live", "message": "CareSphere AI Backend is running"}), 200
+
 @app.route("/emergency", methods=["POST"])
 def emergency():
     data = request.form or request.json
