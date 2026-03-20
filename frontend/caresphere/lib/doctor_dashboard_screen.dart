@@ -132,11 +132,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     }
   }
 
-  Future fetchPatientProgress() async {
     try {
-      // For now using a dummy doctor ID, in real app use logged in user's ID
+      final docId = widget.userId ?? "doctor_123";
       final res = await http.get(
-        Uri.parse("${ApiConfig.baseUrl}/doctor/patient_progress/doctor_123"),
+        Uri.parse("${ApiConfig.baseUrl}/doctor/patient_progress/$docId"),
       );
 
       if (res.statusCode == 200) {
@@ -171,18 +170,47 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       );
 
       if (res.statusCode == 200) {
-        var data = jsonDecode(res.body);
-        setState(() {
-          if (data is Map<String, dynamic>) {
-            aiSummary = data["summary"] ?? data["clinical_summary"] ?? data.toString();
-          } else {
-            aiSummary = data.toString();
-          }
-          loading = false;
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("✅ AI Summary Generated")));
+        var summaryData = jsonDecode(res.body); // Corrected from response.body to res.body
+        
+        if (summaryData is Map) {
+          String summary = summaryData["summary"] ?? summaryData["clinical_summary"] ?? "No summary available";
+          String recommendations = summaryData["recommendations"] ?? "N/A";
+          String risk = summaryData["risk_assessment"] ?? "N/A";
+
+          setState(() {
+            doctorSummary = {
+              "summary": summary,
+              "recommendations": recommendations,
+              "risk": risk,
+            };
+            aiSummary = summary; // Keep aiSummary updated for other functions
+            loading = false;
+          });
+          
+          _listenToSummary(summary);
+        } else if (summaryData is String) {
+           setState(() {
+            doctorSummary = {
+              "summary": summaryData,
+              "recommendations": "N/A",
+              "risk": "N/A",
+            };
+            aiSummary = summaryData; // Keep aiSummary updated for other functions
+            loading = false;
+          });
+          _listenToSummary(summaryData);
+        } else {
+          setState(() {
+            aiSummary = "Error: Unexpected summary data format.";
+            loading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("❌ Failed: Unexpected summary data format")),
+          );
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("✅ AI Summary Generated")),
+        );
       } else {
         setState(() => loading = false);
         ScaffoldMessenger.of(

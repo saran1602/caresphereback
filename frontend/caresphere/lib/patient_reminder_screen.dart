@@ -46,6 +46,7 @@ class _PatientReminderScreenState extends State<PatientReminderScreen> {
   @override
   void initState() {
     super.initState();
+    NotificationService().initNotifications();
     _loadPatientData();
   }
 
@@ -53,8 +54,20 @@ class _PatientReminderScreenState extends State<PatientReminderScreen> {
     if (widget.userId != null) {
       final profile = await authService.getUserProfile(widget.userId!);
       if (profile['success']) {
+        final user = profile['user'];
+        String nameToFetch = user['full_name'];
+        String role = user['role'];
+
+        if (role == 'caregiver' && user['assigned_patient_id'] != null) {
+            // Fetch assigned patient name
+            final patientProfile = await authService.getUserProfile(user['assigned_patient_id']);
+            if (patientProfile['success']) {
+              nameToFetch = patientProfile['user']['full_name'];
+            }
+        }
+
         setState(() {
-          patientName = profile['user']['full_name'];
+          patientName = nameToFetch;
         });
         fetchReminders();
       } else {

@@ -214,16 +214,15 @@ def assign_reminder():
 @app.route("/get_reminders/<patient>")
 def fetch_reminders(patient):
     try:
-        medications = Medication.query.filter_by(patient=patient).all()
+        reminders = Reminder.query.filter_by(patient=patient).all()
 
         output = []
-
-        for med in medications:
+        for r in reminders:
             output.append({
-                "id": med.id,
-                "medicine": med.medicine,
-                "time": med.timing,
-                "taken": getattr(med, 'taken', False)  # Default to False if column missing
+                "id": r.id,
+                "medicine": r.medicine,
+                "time": r.time,
+                "taken": r.taken
             })
 
         return jsonify(output)
@@ -235,22 +234,18 @@ def fetch_reminders(patient):
 def mark_medicine_taken():
     try:
         data = request.json
-        med_id = data.get("id")
+        rem_id = data.get("id")
         taken = data.get("taken")
 
-        med = Medication.query.get(med_id)
-        if med:
-            # Only set taken if the column exists
-            if hasattr(med, 'taken'):
-                med.taken = taken
-                db.session.commit()
-                return jsonify({"message": "Medicine status updated"})
-            else:
-                return jsonify({"message": "Medicine found but taken column not available"}), 200
+        r = Reminder.query.get(rem_id)
+        if r:
+            r.taken = taken
+            db.session.commit()
+            return jsonify({"message": "Reminder status updated"})
         
-        return jsonify({"error": "Medicine not found"}), 404
+        return jsonify({"error": "Reminder not found"}), 404
     except Exception as e:
-        print(f"❌ Error updating medicine status: {e}")
+        print(f"❌ Error updating reminder status: {e}")
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
@@ -280,7 +275,9 @@ def doctor_upload_record():
         })
     except Exception as e:
         print(f"❌ Error in doctor_upload_record: {e}")
-        return jsonify({"error": str(e), "message": "Backe@app.route("/doctor_ai_summary", methods=["POST"])
+        return jsonify({"error": str(e), "message": "Backend processing failed"}), 500
+
+@app.route("/doctor_ai_summary", methods=["POST"])
 def doctor_ai_summary():
     try:
         data = request.json
@@ -347,7 +344,7 @@ def chat():
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a helpful multi-lingual medical assistant for the CareSphere AI app. You can speak 22 Indian languages. Respond in the same language the user uses. Provide concise, helpful health advice but remind them to consult a doctor for emergencies."},
+                {"role": "system", "content": "You are a helpful Tamil medical assistant for the CareSphere AI app. Respond ONLY in Tamil. Provide concise, helpful health advice but remind them to consult a doctor for emergencies."},
                 {"role": "user", "content": user_message}
             ]
         )
@@ -356,21 +353,6 @@ def chat():
     except Exception as e:
         print(f"❌ Chat Error: {e}")
         return jsonify({"response": "An error occurred with our AI service."}), 500
-�ினமும் போதுமான தண்ணீர் குடிக்கவும்.",
-            "pain": "வலி இருந்தால் மருத்துவரை பார்க்கவும் அல்லது ஆரம்ப மருத்துவத்தை உயோகப்படுத்தவும்.",
-        }
-        
-        # Convert to lowercase for matching
-        message_lower = user_message.lower()
-        
-        # Find matching response
-        response_text = dummy_responses.get(message_lower, "நன்றி. உங்கள் கேள்வியை மீண்டும் கேட்கவும் அல்லது வேறு কேள்வியைக் கேட்கவும்.")
-        
-        return jsonify({"response": response_text})
-
-    except Exception as e:
-        print(f"❌ Chat Error: {e}")
-        return jsonify({"response": "மன்னிக்கவும், என்னால் இப்போது பதில் அளிக்க முடியவில்லை."}), 500
 
 @app.route("/ai_prescription_suggest", methods=["POST"])
 def ai_prescription():
@@ -413,9 +395,9 @@ def get_patient_progress(doctor_unique_id):
             patient = User.query.filter_by(unique_id=p_id).first()
             if not patient: continue
             
-            meds = Medication.query.filter_by(patient=patient.full_name).all() # Should use ID in future
-            total = len(meds)
-            taken = len([m for m in meds if m.taken])
+            reminders = Reminder.query.filter_by(patient=patient.full_name).all()
+            total = len(reminders)
+            taken = len([r for r in reminders if r.taken])
             
             progress_report.append({
                 "patient_name": patient.full_name,

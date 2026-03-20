@@ -22,22 +22,9 @@ class _TamilChatbotState extends State<TamilChatbot> {
   String _response = "";
   final TextEditingController _textController = TextEditingController();
 
-  // 22 Scheduled Languages of India
+  // Only Tamil for now
   final List<Map<String, String>> languages = [
     {"name": "Tamil", "stt": "ta-IN", "tts": "ta-IN"},
-    {"name": "Hindi", "stt": "hi-IN", "tts": "hi-IN"},
-    {"name": "English", "stt": "en-IN", "tts": "en-IN"},
-    {"name": "Bengali", "stt": "bn-IN", "tts": "bn-IN"},
-    {"name": "Telugu", "stt": "te-IN", "tts": "te-IN"},
-    {"name": "Marathi", "stt": "mr-IN", "tts": "mr-IN"},
-    {"name": "Gujarati", "stt": "gu-IN", "tts": "gu-IN"},
-    {"name": "Kannada", "stt": "kn-IN", "tts": "kn-IN"},
-    {"name": "Malayalam", "stt": "ml-IN", "tts": "ml-IN"},
-    {"name": "Punjabi", "stt": "pa-IN", "tts": "pa-IN"},
-    {"name": "Odia", "stt": "or-IN", "tts": "or-IN"},
-    {"name": "Urdu", "stt": "ur-IN", "tts": "ur-IN"},
-    {"name": "Assamese", "stt": "as-IN", "tts": "as-IN"},
-    {"name": "Sanskrit", "stt": "sa-IN", "tts": "sa-IN"},
   ];
 
   Map<String, String> _selectedLang = {"name": "Tamil", "stt": "ta-IN", "tts": "ta-IN"};
@@ -154,23 +141,10 @@ class _TamilChatbotState extends State<TamilChatbot> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          "AI Health Assistant",
+                          "AI Health Assistant (Tamil)",
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal),
                         ),
-                        DropdownButton<Map<String, String>>(
-                          value: _selectedLang,
-                          onChanged: (val) {
-                            setDialogState(() => _selectedLang = val!);
-                            setState(() => _selectedLang = val!);
-                            _tts.setLanguage(val!['tts']!);
-                          },
-                          items: languages.map((lang) {
-                            return DropdownMenuItem(
-                              value: lang,
-                              child: Text(lang['name']!, style: TextStyle(fontSize: 12)),
-                            );
-                          }).toList(),
-                        ),
+                        // Dropdown removed to keep it Tamil-only
                       ],
                     ),
                     Divider(),

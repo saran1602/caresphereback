@@ -114,7 +114,8 @@ def register_auth_routes(app):
             return jsonify({"error": "Invalid role. Must be 'patient', 'doctor', or 'caregiver'"}), 400
         
         # Check if email already exists
-        if User.query.filter_by(email=data['email']).first():
+        email = data['email'].lower()
+        if User.query.filter_by(email=email).first():
             return jsonify({"error": "Email already registered"}), 409
         
         # Check if license number already exists (for doctors)
@@ -125,7 +126,7 @@ def register_auth_routes(app):
         try:
             # Create new user
             user = User()
-            user.email = data['email']
+            user.email = email
             user.phone = data['phone']
             user.full_name = data['full_name']
             user.role = role
@@ -180,7 +181,8 @@ def register_auth_routes(app):
         if not data.get('email') or not data.get('password'):
             return jsonify({"error": "Email and password required"}), 400
         
-        user = User.query.filter_by(email=data['email']).first()
+        email = data['email'].lower()
+        user = User.query.filter_by(email=email).first()
         
         if not user or not user.check_password(data['password']):
             return jsonify({"error": "Invalid email or password"}), 401

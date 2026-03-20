@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'upload_screen.dart';
 import 'vitals_screen.dart';
 import 'sos_screen.dart';
+import 'patient_reminder_screen.dart';
 import 'auth_service.dart';
 
 class CaregiverDashboard extends StatefulWidget {
@@ -109,6 +110,13 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
               Icons.warning_amber_rounded,
               context,
               SOSScreen(),
+            ),
+            featureButton(
+              "View Patient Reminders",
+              Icons.medication,
+              context,
+              PatientReminderScreen(userId: widget.userId), // This uses caregiver ID, but PatientReminderScreen fetches profile. 
+                                                           // Better to pass patient_id if we have it.
             ),
             SizedBox(height: 20),
             Container(

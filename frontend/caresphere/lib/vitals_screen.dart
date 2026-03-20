@@ -33,6 +33,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
       Future.delayed(Duration(milliseconds: 800), () {
         showCriticalDialog();
+        triggerEmergencyAPI(); // Auto trigger SOS
       });
     } else if (heartRate > 100 || systolicBP > 140) {
       riskStatus = "WARNING ⚠️";
