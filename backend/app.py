@@ -3,7 +3,12 @@ from flask_cors import CORS
 from models import db, Medication, Vitals, Reminder, User, DoctorPatient
 from auth import register_auth_routes
 from risk_model import predict_risk
-from ocr_service2 import extract_text, structure_medical_text
+try:
+    from ocr_service2 import extract_text, structure_medical_text
+except ImportError:
+    print("⚠️ OCR service unavailable (tesseract not installed)")
+    def extract_text(path): return "OCR unavailable on this server"
+    def structure_medical_text(text): return {"patient_name": "Unknown", "diagnosis": "N/A", "medicines": [], "vitals": {}, "lab_results": []}
 from twilio.rest import Client
 import os
 from dotenv import load_dotenv
@@ -35,7 +40,12 @@ register_auth_routes(app)
 account_sid = os.getenv("TWILIO_ACCOUNT_SID")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 
-client = Client(account_sid, auth_token)
+twilio_client = None
+try:
+    if account_sid and auth_token:
+        twilio_client = Client(account_sid, auth_token)
+except Exception as e:
+    print(f"⚠️ Twilio init failed (non-fatal): {e}")
 
 TWILIO_NUMBER = os.getenv("TWILIO_PHONE")
 HOSPITAL_NUMBER = os.getenv("HOSPITAL_NUMBER")
@@ -64,7 +74,8 @@ Immediate Attention Required
 
     # Send SMS to Hospital
     try:
-        sms = client.messages.create(
+        if twilio_client:
+            sms = twilio_client.messages.create(
             body=msg,
             from_=TWILIO_NUMBER,
             to=hospital_number
@@ -76,7 +87,7 @@ Immediate Attention Required
     # Send SMS to Emergency Contact if exists
     if emergency_contact:
         try:
-            sms = client.messages.create(
+            sms = twilio_client.messages.create(
                 body=f"🚨 EMERGENCY: {patient.full_name} needs help. {msg}",
                 from_=TWILIO_NUMBER,
                 to=emergency_contact
@@ -87,7 +98,7 @@ Immediate Attention Required
 
     # Trigger Call to Ambulance/Hospital
     try:
-        call = client.calls.create(
+        call = twilio_client.calls.create(
             twiml=f'<Response><Say>Emergency alert for patient {patient.full_name}. Immediate response requested.</Say></Response>',
             from_=TWILIO_NUMBER,
             to=hospital_number
@@ -123,12 +134,11 @@ def emergency():
 def trigger_emergency_legacy(patient_name, sugar, bp):
     msg = f"🚨 LEGACY ALERT: Patient {patient_name}, Sugar {sugar}, BP {bp}"
     try:
-        client.messages.create(body=msg, from_=TWILIO_NUMBER, to=HOSPITAL_NUMBER)
+        if twilio_client:
+            twilio_client.messages.create(body=msg, from_=TWILIO_NUMBER, to=HOSPITAL_NUMBER)
     except: pass
 
-@app.route("/")
-def home():
-    return jsonify({"message": "CareSphere AI Backend Running"})
+
 
 @app.route("/upload_prescription", methods=["POST"])
 def upload_prescription():
