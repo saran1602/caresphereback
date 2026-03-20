@@ -2,9 +2,14 @@ from flask import request, jsonify
 from models import db, User, Certificate, DoctorPatient
 from werkzeug.utils import secure_filename
 import jwt
-import qrcode
-from io import BytesIO
-import base64
+try:
+    import qrcode
+    from io import BytesIO
+    import base64
+    QRCODE_AVAILABLE = True
+except ImportError:
+    QRCODE_AVAILABLE = False
+    print("⚠️ qrcode not available — QR codes will be skipped")
 from datetime import datetime, timedelta
 import os
 from functools import wraps
@@ -27,15 +32,15 @@ def generate_patient_id():
 
 def generate_qr_code(patient_id):
     """Generate QR code for patient ID"""
+    if not QRCODE_AVAILABLE:
+        return ""
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(patient_id)
     qr.make(fit=True)
-    
     img = qr.make_image(fill_color="black", back_color="white")
     buffered = BytesIO()
     img.save(buffered, format="PNG")
     img_str = base64.b64encode(buffered.getvalue()).decode()
-    
     return img_str
 
 def generate_token(user_id, role):

@@ -5,14 +5,22 @@ from auth import register_auth_routes
 from risk_model import predict_risk
 try:
     from ocr_service2 import extract_text, structure_medical_text
-except ImportError:
-    print("⚠️ OCR service unavailable (tesseract not installed)")
+except Exception:
+    print("⚠️ OCR service unavailable")
     def extract_text(path): return "OCR unavailable on this server"
     def structure_medical_text(text): return {"patient_name": "Unknown", "diagnosis": "N/A", "medicines": [], "vitals": {}, "lab_results": []}
-from twilio.rest import Client
+try:
+    from twilio.rest import Client as TwilioClient
+except ImportError:
+    TwilioClient = None
+    print("⚠️ Twilio not installed")
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+    print("⚠️ OpenAI not installed")
 
 load_dotenv()
 
@@ -42,8 +50,8 @@ auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 
 twilio_client = None
 try:
-    if account_sid and auth_token:
-        twilio_client = Client(account_sid, auth_token)
+    if TwilioClient and account_sid and auth_token:
+        twilio_client = TwilioClient(account_sid, auth_token)
 except Exception as e:
     print(f"⚠️ Twilio init failed (non-fatal): {e}")
 
