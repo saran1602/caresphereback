@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'api_config.dart';
 
 class TamilChatbot extends StatefulWidget {
   final Widget child;
@@ -19,25 +22,25 @@ class _TamilChatbotState extends State<TamilChatbot> {
   String _response = "";
   final TextEditingController _textController = TextEditingController();
 
-  // Tamil responses dictionary
-  final Map<String, String> responses = {
-    "hello": "வணக்கம்! நான் உங்களுக்கு எப்படி உதவ முடியும்?",
-    "hi": "வணக்கம்! எப்படி உள்ளீர்கள்?",
-    "help":
-        "நான் உங்களுக்கு உதவ முடியும். நோய், மருந்து அல்லது உணவு பற்றி கேட்கவும்.",
-    "health":
-        "ஆரோக்கியம் மிகவும் முக்கியமாகும். தினமும் நடைப்பயிற்சி செய்யுங்கள்.",
-    "medicine": "மருந்தை எடுக்கும் முன் மருத்துவரை கலந்தாலோசிக்கவும்.",
-    "food": "ஆரோக்கியமான உணவை சாப்பிடுங்கள். பச்சை காய்கறிகள் முக்கியம்.",
-    "water": "தினமும் பொதுவாக நீர் குடிக்க வேண்டும்.",
-    "pain": "வலி இருந்தால் மருத்துவரை பார்க்கவும்.",
-    "fever": "காய்ச்சல் இருந்தால் ஓய்வு எடுத்து நீர் குடிக்கவும்.",
-    "sugar": "சர்க்கரை நோய் உள்ளவர்கள் இனிப்பு தவிர்க்க வேண்டும்.",
-    "diabetes": "糖尿病உள்ளவர்கள் மருத்துவரை அடிக்கடி சந்திக்க வேண்டும்.",
-    "pressure": "இரத்த அழுத்தம் சரிபார்க்கவும். சவ்வு தவிர்க்கவும்.",
-    "exercise": "நாள் ஒன்றுக்கு முப்பது நிமிடம் நடையை உத்தமம்.",
-    "sleep": "எட்டு மணிநேரம் தூங்க வேண்டும்.",
-  };
+  // 22 Scheduled Languages of India
+  final List<Map<String, String>> languages = [
+    {"name": "Tamil", "stt": "ta-IN", "tts": "ta-IN"},
+    {"name": "Hindi", "stt": "hi-IN", "tts": "hi-IN"},
+    {"name": "English", "stt": "en-IN", "tts": "en-IN"},
+    {"name": "Bengali", "stt": "bn-IN", "tts": "bn-IN"},
+    {"name": "Telugu", "stt": "te-IN", "tts": "te-IN"},
+    {"name": "Marathi", "stt": "mr-IN", "tts": "mr-IN"},
+    {"name": "Gujarati", "stt": "gu-IN", "tts": "gu-IN"},
+    {"name": "Kannada", "stt": "kn-IN", "tts": "kn-IN"},
+    {"name": "Malayalam", "stt": "ml-IN", "tts": "ml-IN"},
+    {"name": "Punjabi", "stt": "pa-IN", "tts": "pa-IN"},
+    {"name": "Odia", "stt": "or-IN", "tts": "or-IN"},
+    {"name": "Urdu", "stt": "ur-IN", "tts": "ur-IN"},
+    {"name": "Assamese", "stt": "as-IN", "tts": "as-IN"},
+    {"name": "Sanskrit", "stt": "sa-IN", "tts": "sa-IN"},
+  ];
+
+  Map<String, String> _selectedLang = {"name": "Tamil", "stt": "ta-IN", "tts": "ta-IN"};
 
   @override
   void initState() {
@@ -50,10 +53,9 @@ class _TamilChatbotState extends State<TamilChatbot> {
     _tts = FlutterTts();
 
     try {
-      await _tts.setLanguage("ta-IN");
+      await _tts.setLanguage(_selectedLang['tts']!);
       await _tts.setPitch(1.0);
       await _tts.setSpeechRate(0.8);
-      print("✅ Chatbot initialized");
     } catch (e) {
       print("❌ Init error: $e");
     }
@@ -64,123 +66,74 @@ class _TamilChatbotState extends State<TamilChatbot> {
 
     try {
       bool available = await _speech.initialize(
-        onError: (error) {
-          print('❌ Speech Error: $error');
-          if (mounted) {
-            setState(() {
-              _isListening = false;
-              _response = "பேச்சு பிழை: $error";
-            });
-          }
-        },
-        onStatus: (status) {
-          print('📢 Status: $status');
-        },
+        onError: (error) => setState(() => _isListening = false),
       );
 
       if (available) {
-        if (mounted) {
-          setState(() {
-            _isListening = true;
-            _recognizedText = "";
-          });
-        }
+        setState(() {
+          _isListening = true;
+          _recognizedText = "";
+        });
 
         _speech.listen(
-          localeId: "ta-IN",
+          localeId: _selectedLang['stt'],
           onResult: (result) {
-            print("🎤 Recognized: ${result.recognizedWords}");
-            if (mounted) {
-              setState(() {
-                _recognizedText = result.recognizedWords;
-              });
+            setState(() {
+              _recognizedText = result.recognizedWords;
+            });
 
-              // Auto-process when user stops speaking
-              if (result.finalResult && _recognizedText.isNotEmpty) {
-                print("✅ Final result: $_recognizedText");
-                _getResponse(_recognizedText);
-                _stopListening();
-              }
+            if (result.finalResult && _recognizedText.isNotEmpty) {
+              _getResponse(_recognizedText);
+              _stopListening();
             }
           },
         );
-      } else {
-        print("❌ Speech recognition not available");
-        if (mounted) {
-          setState(() {
-            _response = "பேச்சு அங்கீகாரம் கிடைக்கவில்லை";
-            _isListening = false;
-          });
-        }
       }
     } catch (e) {
-      print("❌ Listen error: $e");
-      if (mounted) {
-        setState(() {
-          _isListening = false;
-          _response = "பிழை: $e";
-        });
-      }
+      setState(() => _isListening = false);
     }
   }
 
   void _stopListening() {
     _speech.stop();
-    if (mounted) {
-      setState(() => _isListening = false);
-    }
+    setState(() => _isListening = false);
   }
 
   void _getResponse(String userInput) async {
     if (!mounted) return;
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _response = "";
+    });
 
     try {
-      // Find matching response
-      String query = userInput.toLowerCase().trim();
-      print("🔍 Looking for response for: $query");
+      var res = await http.post(
+        Uri.parse(ApiConfig.chat),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"message": userInput, "language": _selectedLang['name']}),
+      );
 
-      String response =
-          "இப்போது சொல்லலாம். வேறு கேள்வி கேட்கவும். (hello, help, health, medicine, food, water பற்றி கேட்கவும்)";
+      if (res.statusCode == 200) {
+        var data = jsonDecode(res.body);
+        String aiText = data['response'];
 
-      // Exact match first
-      if (responses.containsKey(query)) {
-        response = responses[query]!;
-        print("✅ Exact match found!");
-      } else {
-        // Partial match
-        for (var key in responses.keys) {
-          if (query.contains(key)) {
-            response = responses[key]!;
-            print("✅ Partial match found: $key");
-            break;
-          }
-        }
-      }
-
-      if (mounted) {
         setState(() {
-          _response = response;
+          _response = aiText;
           _isProcessing = false;
         });
 
-        // Speak the response
-        try {
-          print("🔊 Speaking response...");
-          await _tts.speak(response);
-          print("✅ Speech completed");
-        } catch (e) {
-          print("❌ TTS error: $e");
-        }
+        await _tts.speak(aiText);
+      } else {
+        setState(() {
+          _response = "Error: Could not reach AI service.";
+          _isProcessing = false;
+        });
       }
     } catch (e) {
-      print("❌ Response error: $e");
-      if (mounted) {
-        setState(() {
-          _response = "பிழை ஏற்பட்டது. மீண்டும் முயற்சி செய்யவும்.";
-          _isProcessing = false;
-        });
-      }
+      setState(() {
+        _response = "Connection error.";
+        _isProcessing = false;
+      });
     }
   }
 
@@ -191,190 +144,115 @@ class _TamilChatbotState extends State<TamilChatbot> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Container(
                 padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header
-                    Text(
-                      "தமிழ் உதவியாளர்",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepOrange,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "AI Health Assistant",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal),
+                        ),
+                        DropdownButton<Map<String, String>>(
+                          value: _selectedLang,
+                          onChanged: (val) {
+                            setDialogState(() => _selectedLang = val!);
+                            setState(() => _selectedLang = val!);
+                            _tts.setLanguage(val!['tts']!);
+                          },
+                          items: languages.map((lang) {
+                            return DropdownMenuItem(
+                              value: lang,
+                              child: Text(lang['name']!, style: TextStyle(fontSize: 12)),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ),
-                    Divider(height: 20),
-                    SizedBox(height: 10),
-
-                    // User speech display
+                    Divider(),
+                    
                     if (_recognizedText.isNotEmpty)
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "நீங்கள்:",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue.shade600,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              _recognizedText,
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ],
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Container(
+                          margin: EdgeInsets.symmetric(vertical: 5),
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.teal.shade50, borderRadius: BorderRadius.circular(10)),
+                          child: Text(_recognizedText),
                         ),
                       ),
-                    if (_recognizedText.isEmpty)
-                      Text(
-                        "உங்கள் பேச்சு இங்கே தோன்றும்",
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                    SizedBox(height: 15),
-
-                    // Response display
+                    
                     if (_response.isNotEmpty)
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "உதவியாளர்:",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green.shade600,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(_response, style: TextStyle(fontSize: 14)),
-                          ],
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          margin: EdgeInsets.symmetric(vertical: 5),
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
+                          child: Text(_response),
                         ),
                       ),
-                    if (_response.isEmpty && _recognizedText.isNotEmpty)
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          "பதிலளிக்கிறது...",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.orange.shade700,
+                      
+                    if (_isProcessing)
+                      Padding(
+                        padding: EdgeInsets.all(10),
+                        child: CircularProgressIndicator(),
+                      ),
+
+                    SizedBox(height: 20),
+                    
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _textController,
+                            decoration: InputDecoration(
+                              hintText: "Type or ask...",
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 20),
+                            ),
                           ),
                         ),
-                      ),
-                    SizedBox(height: 20),
-
-                    // Text input for manual entry
-                    TextField(
-                      controller: _textController,
-                      decoration: InputDecoration(
-                        hintText: "சொல்லவோ அல்லது எழுதவோ...",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(Icons.send, color: Colors.deepOrange),
+                        IconButton(
+                          icon: Icon(Icons.send, color: Colors.teal),
                           onPressed: () {
                             if (_textController.text.isNotEmpty) {
-                              setDialogState(() {
-                                _recognizedText = _textController.text;
-                              });
-                              _getResponse(_textController.text);
+                              String txt = _textController.text;
+                              setDialogState(() => _recognizedText = txt);
+                              _getResponse(txt);
                               _textController.clear();
                             }
                           },
                         ),
+                      ],
+                    ),
+                    
+                    SizedBox(height: 20),
+                    
+                    GestureDetector(
+                      onTap: () {
+                        if (_isListening) {
+                          _stopListening();
+                        } else {
+                          _startListening();
+                        }
+                        setDialogState(() {});
+                      },
+                      child: CircleAvatar(
+                        radius: 30,
+                        backgroundColor: _isListening ? Colors.red : Colors.teal,
+                        child: Icon(_isListening ? Icons.stop : Icons.mic, color: Colors.white, size: 30),
                       ),
                     ),
-                    SizedBox(height: 15),
-                    if (_isProcessing)
-                      Column(
-                        children: [
-                          CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.deepOrange,
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          Text("பதிலளிக்கிறது..."),
-                        ],
-                      )
-                    else
-                      Column(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              if (_isListening) {
-                                _stopListening();
-                              } else {
-                                _startListening();
-                              }
-                              setDialogState(() {});
-                            },
-                            child: Container(
-                              padding: EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: _isListening
-                                    ? Colors.red
-                                    : Colors.deepOrange,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _isListening ? Icons.stop : Icons.mic,
-                                color: Colors.white,
-                                size: 40,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            _isListening
-                                ? "🔴 கேட்டுக்கொண்டிருக்கிறது..."
-                                : "🎤 பேச்சு தொடங்க அழுத்தவும்",
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    SizedBox(height: 20),
-
-                    // Close button
-                    ElevatedButton(
-                      onPressed: () {
-                        _stopListening();
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepOrange,
-                      ),
-                      child: Text(
-                        "மூடவும்",
-                        style: TextStyle(color: Colors.white),
-                      ),
+                    
+                    SizedBox(height: 10),
+                    Text(
+                      _isListening ? "Listening..." : "Tap to Speak",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -383,11 +261,7 @@ class _TamilChatbotState extends State<TamilChatbot> {
           },
         );
       },
-    ).then((_) {
-      // Cleanup when dialog closes
-      _stopListening();
-      _speech.stop();
-    });
+    );
   }
 
   @override
@@ -395,14 +269,13 @@ class _TamilChatbotState extends State<TamilChatbot> {
     return Stack(
       children: [
         widget.child,
-        // Floating mic button (bottom right)
         Positioned(
           bottom: 20,
           right: 20,
           child: FloatingActionButton(
             onPressed: _showChatDialog,
-            backgroundColor: Colors.deepOrange,
-            child: Icon(Icons.mic, color: Colors.white, size: 28),
+            backgroundColor: Colors.teal,
+            child: Icon(Icons.support_agent, color: Colors.white),
           ),
         ),
       ],

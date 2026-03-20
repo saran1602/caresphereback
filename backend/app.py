@@ -280,57 +280,83 @@ def doctor_upload_record():
         })
     except Exception as e:
         print(f"❌ Error in doctor_upload_record: {e}")
-        return jsonify({"error": str(e), "message": "Backend processing failed"}), 500
-
-@app.route("/doctor_ai_summary", methods=["POST"])
+        return jsonify({"error": str(e), "message": "Backe@app.route("/doctor_ai_summary", methods=["POST"])
 def doctor_ai_summary():
+    try:
+        data = request.json
+        if not openai_client:
+            return jsonify({"error": "AI service unavailable"}), 503
 
-    data = request.json
+        # Sync keys with frontend (patient_name vs name)
+        patient_name = data.get('name') or data.get('patient_name') or 'Unknown'
+        
+        # Diagnosis/Conditions
+        diagnosis = "N/A"
+        if data.get('diagnosis'):
+            diagnosis = data.get('diagnosis')
+        elif data.get('conditions') and isinstance(data.get('conditions'), list) and len(data.get('conditions')) > 0:
+            diagnosis = data.get('conditions')[0]
 
-    patient = {
-        "name": data.get("name", "Unknown"),
-        "age": data.get("age", "Unknown"),
-        "conditions": data.get("conditions", [])
-    }
+        prompt = f"""
+        Generate a professional clinical summary for a doctor based on this patient data:
+        Patient: {patient_name}
+        Diagnosis/Conditions: {diagnosis}
+        Vitals: {data.get('vitals', {})}
+        Lab Results: {data.get('lab_results', [])}
+        Medicines: {data.get('medicines', [])}
+        
+        Provide:
+        1. "summary": A concise 3-sentence clinical summary.
+        2. "recommendations": Key medical recommendations.
+        3. "risk_assessment": Risk level (Low, Moderate, High).
+        
+        Return ONLY a JSON object with these keys.
+        """
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": "You are a specialized medical consultant."},
+                      {"role": "user", "content": prompt}],
+            response_format={ "type": "json_object" }
+        )
+        
+        # Parse the AI response to ensure it's valid JSON
+        try:
+            import json
+            ai_data = json.loads(response.choices[0].message.content)
+            return jsonify(ai_data)
+        except:
+            return jsonify({"summary": response.choices[0].message.content, "recommendations": "N/A", "risk_assessment": "N/A"})
+        
+    except Exception as e:
+        print(f"❌ AI Summary Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
-    allergies = data.get("allergies", [])
-    symptoms = data.get("symptoms", [])
-    vitals = data.get("vitals", {})
-    prescriptions = data.get("prescriptions", [])
-    scans = data.get("scans", [])
-
-    # Dummy AI summary generation
-    result = {
-        "patient_summary": f"Patient {patient['name']}, Age {patient['age']}, with conditions: {', '.join(patient['conditions']) or 'None reported'}",
-        "allergies": allergies,
-        "current_symptoms": symptoms,
-        "vital_signs": vitals,
-        "current_medications": prescriptions,
-        "imaging_reports": scans,
-        "clinical_recommendation": "Continue current treatment plan. Schedule follow-up in 2 weeks. Monitor blood glucose levels.",
-        "risk_assessment": "Low to moderate risk. Maintain current medication adherence."
-    }
-
-    return jsonify(result)
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    data = request.json
-    user_message = data.get("message", "")
-
-    if not user_message:
-        return jsonify({"response": "வார்த்தைகள் கிடைக்கவில்லை."}), 400
-
     try:
-        # DUMMY RESPONSES - No dependency on OpenAI API
-        dummy_responses = {
-            "hello": "வணக்கம்! நீங்கள் எப்படி உள்ளீர்கள்?",
-            "hi": "வணக்கம்! உங்களுக்கு சாயம் உள்ளதா?",
-            "help": "நான் உங்களுக்கு உதவ முடியும். நோய், மருந்து அல்லது உணவு பற்றி கேட்கவும்.",
-            "health": "ஆரோக்கியம் என்பது முக்கியமானது. தினமும் சிறிது நடைப்பயிற்சி செய்யுங்கள்.",
-            "medicine": "மருந்தை எடுக்கும் முன் மருத்துவரை கலந்தாலோசிக்கவும்.",
-            "food": "ஆரோக்கியமான உணவை சாப்பிடுங்கள். பச்சை காய்கறிகள் மற்றும் பழங்கள் முக்கியம்.",
-            "water": "தினமும் போதுமான தண்ணீர் குடிக்கவும்.",
+        data = request.json
+        user_message = data.get("message", "")
+        if not user_message:
+            return jsonify({"response": "No message provided"}), 400
+
+        if not openai_client:
+            return jsonify({"response": "AI services are currently offline. Please try again later."}), 503
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful multi-lingual medical assistant for the CareSphere AI app. You can speak 22 Indian languages. Respond in the same language the user uses. Provide concise, helpful health advice but remind them to consult a doctor for emergencies."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        
+        return jsonify({"response": response.choices[0].message.content})
+    except Exception as e:
+        print(f"❌ Chat Error: {e}")
+        return jsonify({"response": "An error occurred with our AI service."}), 500
+�ினமும் போதுமான தண்ணீர் குடிக்கவும்.",
             "pain": "வலி இருந்தால் மருத்துவரை பார்க்கவும் அல்லது ஆரம்ப மருத்துவத்தை உயோகப்படுத்தவும்.",
         }
         

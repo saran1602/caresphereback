@@ -85,13 +85,23 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         setState(() {
           try {
             var rawStructured = data['structured_data'];
+            Map<String, dynamic> processedData = {};
+            
             if (rawStructured is String) {
-              structuredData = jsonDecode(rawStructured);
-            } else {
-              structuredData = rawStructured;
+              var decoded = jsonDecode(rawStructured);
+              if (decoded is Map<String, dynamic>) {
+                processedData = decoded;
+              } else {
+                print("⚠️ OCR JSON is not a Map: $decoded");
+              }
+            } else if (rawStructured is Map<String, dynamic>) {
+              processedData = rawStructured;
+            } else if (rawStructured != null) {
+              print("⚠️ Unexpected structured_data type: ${rawStructured.runtimeType}");
             }
             
-            aiSummary = structuredData?['clinical_summary'] ?? "No summary available";
+            structuredData = processedData;
+            aiSummary = processedData['clinical_summary'] ?? processedData['summary'] ?? "No summary available";
           } catch (e) {
             print("❌ OCR Parsing Error: $e");
             aiSummary = "Error parsing medical data. Please try again with a clearer image.";
@@ -149,10 +159,11 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         Uri.parse("${ApiConfig.baseUrl}/doctor_ai_summary"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "patient_name": structuredData?['patient_name'] ?? "Unknown",
-          "date": structuredData?['date'] ?? "N/A",
-          "record_type": structuredData?['record_type'] ?? "OTHER",
-          "diagnosis": structuredData?['diagnosis'] ?? "N/A",
+          "name": structuredData?['patient_name'] ?? "Unknown",
+          "age": "N/A", // Not usually in OCR structured data yet
+          "conditions": [structuredData?['diagnosis'] ?? "N/A"],
+          "allergies": [],
+          "symptoms": [],
           "vitals": structuredData?['vitals'] ?? {},
           "lab_results": structuredData?['lab_results'] ?? [],
           "medicines": structuredData?['medicines'] ?? [],
@@ -162,7 +173,11 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       if (res.statusCode == 200) {
         var data = jsonDecode(res.body);
         setState(() {
-          aiSummary = data["summary"] ?? data.toString();
+          if (data is Map<String, dynamic>) {
+            aiSummary = data["summary"] ?? data["clinical_summary"] ?? data.toString();
+          } else {
+            aiSummary = data.toString();
+          }
           loading = false;
         });
         ScaffoldMessenger.of(
@@ -422,7 +437,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             ],
 
             // ===== LAB RESULTS SECTION =====
-            if (structuredData != null && (structuredData!['lab_results'] as List).isNotEmpty) ...[
+            if (structuredData != null && 
+                structuredData!['lab_results'] is List && 
+                (structuredData!['lab_results'] as List).isNotEmpty) ...[
               SizedBox(height: 25),
               Text(
                 "🧪 Lab Test Results",
@@ -445,9 +462,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                     ],
                     rows: (structuredData!['lab_results'] as List).map((item) {
                       return DataRow(cells: [
-                        DataCell(Text(item['parameter'] ?? '')),
-                        DataCell(Text("${item['value'] ?? ''} ${item['unit'] ?? ''}")),
-                        DataCell(Text(item['normal_range'] ?? 'N/A')),
+                        DataCell(Text(item['parameter']?.toString() ?? '')),
+                        DataCell(Text("${item['value']?.toString() ?? ''} ${item['unit']?.toString() ?? ''}")),
+                        DataCell(Text(item['normal_range']?.toString() ?? 'N/A')),
                       ]);
                     }).toList(),
                   ),
@@ -617,30 +634,30 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               ],
             ),
             SizedBox(height: 10),
-            if (patientProgress.isEmpty)
+            if (patientProgress == null || patientProgress!.isEmpty)
               Center(child: Text("Register patients to track progress"))
             else
-              ...patientProgress.map((p) {
+              ...patientProgress!.map((p) {
                 return Card(
                   margin: EdgeInsets.only(bottom: 15),
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.teal.shade100,
-                      child: Text(p['patient_name'][0]),
+                      child: Text(p['patient_name'] != null && p['patient_name'].isNotEmpty ? p['patient_name'][0] : "?"),
                     ),
-                    title: Text(p['patient_name']),
-                    subtitle: Text("ID: ${p['patient_id']}"),
+                    title: Text(p['patient_name'] ?? "Unknown Patient"),
+                    subtitle: Text("ID: ${p['patient_id'] ?? 'N/A'}"),
                     trailing: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "${p['adherence_rate'].toStringAsFixed(0)}%",
+                          "${(p['adherence_rate'] ?? 0.0).toStringAsFixed(0)}%",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: p['adherence_rate'] > 70 ? Colors.green : Colors.red,
+                            color: (p['adherence_rate'] ?? 0) > 70 ? Colors.green : Colors.red,
                           ),
                         ),
-                        Text("${p['taken_meds']}/${p['total_meds']} Taken"),
+                        Text("${p['taken_meds'] ?? 0}/${p['total_meds'] ?? 0} Taken"),
                       ],
                     ),
                   ),
