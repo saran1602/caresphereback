@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'api_config.dart';
 
 class VitalsScreen extends StatefulWidget {
@@ -85,10 +85,10 @@ class _VitalsScreenState extends State<VitalsScreen> {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "patient_unique_id": widget.userId ?? "unknown",
-          "sugar": _sugarController.text,
-          "bp": _bpController.text,
-          "heart_rate": _heartRateController.text,
-          "pulse": _pulseController.text
+          "sugar": "N/A",  // You can add a sugar field to the state if needed
+          "bp": "$systolicBP/$diastolicBP",
+          "heart_rate": heartRate.toString(),
+          "pulse": pulseRate.toString()
         }),
       );
 
