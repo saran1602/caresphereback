@@ -213,7 +213,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           loading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("✅ AI Summary Generated (Local)")),
+          SnackBar(content: Text("✅ AI Summary Generated")),
         );
       }
     } catch (e) {

@@ -142,15 +142,59 @@ def trigger_emergency_legacy(patient_name, sugar, bp):
 
 @app.route("/upload_prescription", methods=["POST"])
 def upload_prescription():
-
-    file = request.files["file"]
-    path = "temp.jpg"
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+    path = "temp_upload.jpg"
     file.save(path)
-
-    # Dummy text extraction - OCR disabled for now
-    text = "Prescription: Paracetamol 500mg - 2 tablets twice daily.\nAmoxicillin 500mg - 1 capsule thrice daily.\nRest and hydration for 3 days."
-
+    text = extract_text(path)
     return jsonify({"extracted_text": text})
+
+
+@app.route("/doctor_upload_record", methods=["POST"])
+def doctor_upload_record():
+    """
+    Full pipeline: upload image → Vision OCR → structure with GPT-4o → return JSON.
+    Works on Render without Tesseract.
+    """
+    import os
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    path = "doctor_temp.jpg"
+    try:
+        file.save(path)
+
+        # Step 1: Extract text via Vision API (or fallback)
+        raw_text = extract_text(path)
+
+        # Step 2: Structure the text into medical JSON (or fallback)
+        structured = structure_medical_text(raw_text)
+
+        # Make sure it's a dict
+        if isinstance(structured, str):
+            import json as _json
+            try:
+                structured = _json.loads(structured)
+            except Exception:
+                structured = {"raw_text": structured}
+
+        return jsonify({
+            "message": "Record processed successfully",
+            "extracted_text": raw_text,
+            "structured_data": structured
+        })
+    except Exception as e:
+        print(f"❌ Upload record error: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except Exception:
+            pass
+
 
 @app.route("/add_medication", methods=["POST"])
 def add_med():
